@@ -1,0 +1,9 @@
+{
+  "name": "GHOST COMMANDER | OMNIPOTENCE v10.1_STABLE",
+  "description": "The absolute final kernel. Hardware-linked, real-world grounded, and self-stabilizing intelligence hub.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
