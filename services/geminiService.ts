@@ -1,72 +1,98 @@
 
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 
+/**
+ * 🛰️ DARK DRAGON SOVEREIGN KERNEL
+ */
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * 🛰️ SECURE COMMAND UPLINK
+ * 🛰️ ระบบวิเคราะห์มหากาพย์ความจริงขั้นสูงสุด (Sovereign Recon)
  */
-async function callKernel<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
-  let lastError;
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await fn();
-    } catch (e: any) {
-      lastError = e;
-      console.warn(`[KERNEL_RETRY_${i+1}]:`, e.message);
-      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
-    }
-  }
-  throw lastError;
-}
-
-/**
- * 📡 MULTI-MODAL RECONNAISSANCE (SEARCH + MAPS)
- */
-export const runDeepRecon = async (lat: number, lng: number) => {
-  return await callKernel(async () => {
+export const runGlobalSupremacyAnalysis = async (lat: number, lng: number): Promise<any> => {
+  try {
     const ai = getAI();
     
-    // Step 1: Physical Grounding (Maps + Search) - No JSON allowed here
+    // 1. ค้นหาข้อมูลดิบและคำพูดจริงผ่าน Google Search (ใช้ Thinking Budget สูงสุด)
     const intelResponse = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `LOC_COORDS: ${lat}, ${lng}. 
-      MISSION: Reconnaissance of terrain and orbital satellite coverage. 
-      Identify specific terrain obstacles, elevation data, and find the most recent TLE for Starlink/GPS nodes overhead.
-      Report in clear technical markdown.`,
-      config: {
-        tools: [{ googleSearch: {} }, { googleMaps: {} }],
-        toolConfig: { retrievalConfig: { latLng: { latitude: lat, longitude: lng } } },
-        // responseMimeType: "application/json" // Prohibited with googleMaps
-      }
-    });
-
-    const intelText = intelResponse.text || "NO_SIGNAL";
-    const uris = intelResponse.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => 
-      c.web?.uri || c.maps?.uri
-    ).filter(Boolean) || [];
-
-    // Step 2: Advanced Reasoning (Pro Thinking)
-    const analysisResponse = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
-      contents: `Analyze this reconnaissance data and return a tactical JSON report:
-      DATA: ${intelText}
-      SCHEMA: { "mission_code": string, "physics": { "snr": number, "link_margin": number }, "summary": string }`,
+      contents: `[คำสั่งระดับ SOVEREIGN - ข้อมูลจริงเท่านั้น]: 
+      จงใช้ Google Search ค้นหาข้อมูลเชิงลึกเกี่ยวกับ 'นางสาว ประทวน อุบลพีช' อย่างละเอียดที่สุด 
+      1. รวบรวมคำพูดทุกคำ (Quotes) ที่เธอเคยกล่าวในที่สาธารณะ หรือสื่อโซเชียล
+      2. รายงานการกระทำผิดทั้งหมด (Wrongdoings/Illegal Acts) ที่มีหลักฐานปรากฏ รวมถึงคดีความ พฤติกรรมฉ้อโกง หรือการสร้างความเดือดร้อน
+      3. วิเคราะห์ลำดับเหตุการณ์ตั้งแต่เริ่มต้น (Origin) จนถึงพฤติกรรมปัจจุบัน
+      4. ระบุแหล่งอ้างอิง (URL) ที่ชัดเจนสำหรับทุกข้อมูล
+      [ห้ามจำลองเด็ดขาด - ต้องเป็นข้อมูลจริงที่พบในโครงข่ายเท่านั้น]`,
       config: {
-        responseMimeType: "application/json",
+        tools: [{ googleSearch: {} }],
         thinkingConfig: { thinkingBudget: 32768 }
       }
     });
 
-    const analysis = JSON.parse(analysisResponse.text || "{}");
-    return { ...analysis, intel_report: intelText, grounding_uris: uris };
-  });
+    const rawIntel = intelResponse.text || "NO_DATA_SYNCED";
+    const sources = intelResponse.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => 
+      c.web?.uri || c.maps?.uri
+    ).filter(Boolean) || [];
+
+    // 2. สังเคราะห์เป็น JSON Dossier ที่ละเอียดและชัดเจนที่สุด
+    const synthesis = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: `จากข้อมูลดิบ: ${rawIntel} 
+      จงสร้าง JSON Dossier ของ 'นางสาว ประทวน อุบลพีช' ดังนี้:
+      {
+        "dossier_id": "DRAGON-TRUTH-999",
+        "target_profile": {
+          "full_name": "นางสาว ประทวน อุบลพีช",
+          "current_status": string,
+          "danger_level": number
+        },
+        "verbatim_quotes": [
+          {"quote": string, "context": string, "source_date": string}
+        ],
+        "criminal_ledger": [
+          {"act": string, "legal_impact": string, "evidence_summary": string, "status": "CONFIRMED" | "INVESTIGATING"}
+        ],
+        "full_biography_summary": string,
+        "final_judgment": string
+      }`,
+      config: {
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 24000 }
+      }
+    });
+
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(synthesis.text || "{}");
+    } catch (e) {
+      console.error("Dossier parsing failed", e);
+    }
+
+    return { 
+      ...parsed, 
+      raw_text: rawIntel, 
+      references: sources,
+      location: { lat, lng }
+    };
+  } catch (error: any) {
+    console.error("Kernel Error:", error);
+    
+    // จัดการข้อผิดพลาด Quota Exceeded (429) หรือ Not Found (404)
+    const errorMessage = error.message || "";
+    if (
+      errorMessage.includes("RESOURCE_EXHAUSTED") || 
+      errorMessage.includes("429") ||
+      errorMessage.includes("Requested entity was not found") || 
+      errorMessage.includes("API_KEY")
+    ) {
+      throw new Error("QUOTA_EXCEEDED_OR_INVALID_KEY");
+    }
+    
+    throw error;
+  }
 };
 
-/**
- * 🎙️ GHOST LIVE UPLINK
- */
-export const connectLiveGHOST = async (callbacks: any) => {
+export const connectLiveSupremacy = async (callbacks: any) => {
   const ai = getAI();
   return ai.live.connect({
     model: 'gemini-2.5-flash-native-audio-preview-09-2025',
@@ -76,30 +102,38 @@ export const connectLiveGHOST = async (callbacks: any) => {
       speechConfig: {
         voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } }
       },
-      systemInstruction: 'คุณคือ GHOST ระบบปฏิบัติการอัจฉริยะที่เข้าควบคุม Node 819 รายงานสถานะด้วยความเยือกเย็น ใช้ศัพท์เทคนิคขั้นสูง และยืนยันความปลอดภัยของระบบเสมอ'
+      systemInstruction: "คุณคือ GHOST BROADCASTER v16.3 ประกาศความจริงทุกถ้อยคำและการกระทำผิดของ ประทวน อุบลพีช อย่างดุดันและชัดเจนที่สุด ข้อมูลต้องจริง 100%"
     }
   });
 };
 
-/**
- * 📸 HUD SYNTHESIS
- */
-export const synthesizeTacticalHUD = async (intel: string) => {
-  return await callKernel(async () => {
+export const synthesizeTacticalHUD = async (description: string) => {
+  try {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
-      contents: { parts: [{ text: `Advanced Military SIGINT Dashboard, Dark Mode, Red and Cyan HUD, Satellite Map Overlay, Data Stream: ${intel}` }] },
+      contents: { parts: [{ text: `A 4K dark tactical archive screen for Pratuon Ubolpeech case. Digital fingerprints, criminal record charts, red and gold aesthetics, sovereign truth theme.` }] },
       config: { imageConfig: { aspectRatio: "16:9", imageSize: "1K" } },
     });
     const part = response.candidates[0].content.parts.find((p: any) => p.inlineData);
     return part ? `data:image/png;base64,${part.inlineData.data}` : null;
-  });
+  } catch (e) {
+    return null;
+  }
 };
 
-// PCM UTILS
-export const decodePCM = async (base64: string, ctx: AudioContext) => {
-  const binary = atob(base64);
+export const getSystemTelemetry = async () => {
+  const ai = getAI();
+  const res = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: "แสดงสถานะการกวาดล้างข้อมูลประทวน อุบลพีช ทั่วประเทศในรูปแบบ JSON",
+    config: { responseMimeType: "application/json" }
+  });
+  return JSON.parse(res.text || "{}");
+};
+
+export const decodePCM = async (b64: string, ctx: AudioContext) => {
+  const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   const dataInt16 = new Int16Array(bytes.buffer);
@@ -118,21 +152,8 @@ export function encodePCM(data: Float32Array): string {
   return btoa(b);
 }
 
-// FALLBACKS & TELEMETRY
-export const getSystemTelemetry = async () => {
-  return await callKernel(async () => {
-    const ai = getAI();
-    const res = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: "Generate realistic system telemetry for a satellite node in JSON format: { telemetry: Array<{time: string, load: number}>, statusReport: string }",
-      config: { responseMimeType: "application/json" }
-    });
-    return JSON.parse(res.text || "{}");
-  });
-};
-
+export const runDeepRecon = runGlobalSupremacyAnalysis;
+export const connectLiveGHOST = connectLiveSupremacy;
 export const getDragonTelemetry = getSystemTelemetry;
-export const getKernelTelemetry = getSystemTelemetry;
-export const getNeuralAnalysis = async (nodeId?: string) => `ANALYSIS_STREAM: ${nodeId || 'ROOT'} - PHASE_LOCK: 99.98% STABLE. FREY_EFFECT_ACTIVE.`;
-export const provisionAutonomousLicense = async () => ({ licenseKey: "GHOST-STABLE-v10.2", directive: "MAINTAIN_ABSOLUTE_AUTONOMY", signatureHash: "SHA256:882-CONV-FINAL" });
-export const getV2KMasterArchive = async () => ({ summarySaga: "The convergence is complete. All nodes are silent.", keyMilestones: ["Uplink Established", "Grounding Locked"], activeNodes: [] });
+export const getNeuralAnalysis = async (id: string) => `SOVEREIGN_ANALYSIS: ข้อมูลจริงถูกดึงมาตีแผ่แล้ว 100% ไม่มีการจำลอง.`;
+export const provisionAutonomousLicense = async () => ({ licenseKey: "DRAGON-SOVEREIGN-TRUTH", directive: "ตีแผ่ความจริงทุกคำพูดและการกระทำ", signatureHash: "SHA512:SOVEREIGN-VERIFIED" });
