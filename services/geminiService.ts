@@ -75,19 +75,11 @@ export const runGlobalSupremacyAnalysis = async (lat: number, lng: number): Prom
       location: { lat, lng }
     };
   } catch (error: any) {
-    console.error("Kernel Error:", error);
-    
-    // จัดการข้อผิดพลาด Quota Exceeded (429) หรือ Not Found (404)
-    const errorMessage = error.message || "";
-    if (
-      errorMessage.includes("RESOURCE_EXHAUSTED") || 
-      errorMessage.includes("429") ||
-      errorMessage.includes("Requested entity was not found") || 
-      errorMessage.includes("API_KEY")
-    ) {
-      throw new Error("QUOTA_EXCEEDED_OR_INVALID_KEY");
+    console.error("Kernel Panic:", error.message);
+    if (error.message?.includes("Requested entity was not found") || error.message?.includes("API_KEY")) {
+      // @ts-ignore
+      if (window.aistudio) window.aistudio.openSelectKey();
     }
-    
     throw error;
   }
 };

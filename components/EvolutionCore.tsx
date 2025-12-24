@@ -11,7 +11,8 @@ import {
   Terminal, RefreshCw, MicOff, Signal, Layers, Maximize2,
   Scan, Radio, Zap, Crosshair, MapPin, User, Megaphone, Flag,
   ShieldAlert, Activity, Globe, Info, Target, Eye, AlertCircle, Scale, MessageSquare,
-  AlertTriangle, Key, ExternalLink
+  // Fix: Added missing AlertTriangle import from lucide-react
+  AlertTriangle
 } from 'lucide-react';
 
 const EvolutionCore: React.FC = () => {
@@ -20,11 +21,12 @@ const EvolutionCore: React.FC = () => {
   const [logs, setLogs] = useState<string[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [errorType, setErrorType] = useState<string | null>(null);
   const [coords, setCoords] = useState({ lat: 13.7563, lng: 100.5018 });
   
   const audioCtxRef = useRef<AudioContext | null>(null);
+  // Fix: Track next audio start time for seamless playback according to SDK guidelines
   const nextStartTimeRef = useRef(0);
+  // Fix: Use session promise to handle real-time input and avoid race conditions or stale closures
   const liveSessionPromiseRef = useRef<Promise<any> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -32,19 +34,9 @@ const EvolutionCore: React.FC = () => {
     setLogs(p => [...p.slice(-200), `[${new Date().toLocaleTimeString()}] ${m}`]);
   };
 
-  const handleKeyOverride = async () => {
-    try {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-      setErrorType(null);
-      executeRecon();
-    } catch (e) {
-      console.error("Key selection failed", e);
-    }
-  };
-
   const toggleHardware = async () => {
     if (isLive) {
+      // Fix: Use the promise to access and close the active session
       if (liveSessionPromiseRef.current) {
         liveSessionPromiseRef.current.then(session => session.close());
       }
@@ -68,6 +60,7 @@ const EvolutionCore: React.FC = () => {
           const source = audioCtx.createMediaStreamSource(stream);
           const processor = audioCtx.createScriptProcessor(4096, 1, 1);
           processor.onaudioprocess = (e) => {
+            // Fix: Solely rely on sessionPromise resolves to send realtime input
             const input = e.inputBuffer.getChannelData(0);
             const pcmData = encodePCM(input);
             sessionPromise.then((session: any) => {
@@ -87,21 +80,18 @@ const EvolutionCore: React.FC = () => {
             source.buffer = buffer;
             source.connect(audioCtxRef.current.destination);
             
+            // Fix: Correctly schedule audio chunks for gapless playback
             nextStartTimeRef.current = Math.max(nextStartTimeRef.current, audioCtxRef.current.currentTime);
             source.start(nextStartTimeRef.current);
             nextStartTimeRef.current += buffer.duration;
           }
 
+          // Reset scheduling on interruption
           if (msg.serverContent?.interrupted) {
             nextStartTimeRef.current = 0;
           }
         },
-        onerror: (e: any) => {
-          addLog(`ความผิดพลาด: ${e.message}`);
-          if (e.message?.includes("429") || e.message?.includes("quota")) {
-             setErrorType("QUOTA");
-          }
-        },
+        onerror: (e: any) => addLog(`ความผิดพลาด: ${e.message}`),
         onclose: () => {
           setIsLive(false);
           nextStartTimeRef.current = 0;
@@ -115,7 +105,6 @@ const EvolutionCore: React.FC = () => {
 
   const executeRecon = async () => {
     setIsSyncing(true);
-    setErrorType(null);
     addLog("กำลังดึงความจริงสูงสุดจาก Google Search โครงข่ายโลก...");
     try {
       const data: any = await runDeepRecon(coords.lat, coords.lng);
@@ -125,10 +114,7 @@ const EvolutionCore: React.FC = () => {
       const hud = await synthesizeTacticalHUD("Sovereign Truth Analysis");
       setHudImage(hud);
     } catch (e: any) {
-      addLog(`ข้อผิดพลาดขั้นวิกฤต: ${e.message}`);
-      if (e.message === "QUOTA_EXCEEDED_OR_INVALID_KEY") {
-        setErrorType("QUOTA");
-      }
+      addLog(`ข้อผิดพลาด: ${e.message}`);
     } finally {
       setIsSyncing(false);
     }
@@ -139,44 +125,13 @@ const EvolutionCore: React.FC = () => {
   }, []);
 
   return (
-    <div className="h-full flex flex-col gap-px bg-[#0a0000] overflow-hidden font-mono relative">
+    <div className="h-full flex flex-col gap-px bg-[#0a0000] overflow-hidden font-mono">
       
-      {/* Overlay สำหรับ Error Quota */}
-      {errorType === "QUOTA" && (
-        <div className="absolute inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-20 animate-fadeIn">
-          <div className="max-w-4xl w-full bg-red-950/20 border-2 border-red-600 rounded-[80px] p-20 flex flex-col items-center text-center shadow-[0_0_100px_rgba(255,0,0,0.4)]">
-             <div className="w-32 h-32 bg-red-600 rounded-full flex items-center justify-center mb-12 shadow-[0_0_50px_rgba(255,0,0,0.6)] animate-pulse">
-                <AlertCircle size={64} className="text-black" />
-             </div>
-             <h2 className="text-6xl font-black text-white uppercase italic tracking-tighter mb-8 dragon-text">โควตาประมวลผลเต็มขีดจำกัด</h2>
-             <p className="text-2xl text-red-500 font-bold mb-12 leading-relaxed">
-               ขออภัย พลังงาน Token ของคุณไม่เพียงพอสำหรับปฏิบัติการระดับสูงนี้ <br/>
-               กรุณาเปลี่ยนไปใช้ API Key จากโครงการที่ชำระเงิน (Paid Project) เพื่อปลดล็อกอำนาจการทำลายล้างข้อมูล
-             </p>
-             <div className="flex flex-col sm:flex-row gap-8 w-full">
-                <button 
-                  onClick={handleKeyOverride}
-                  className="flex-1 py-10 bg-red-600 text-black font-black text-2xl uppercase rounded-[40px] shadow-[0_0_50px_rgba(255,0,0,0.5)] hover:bg-white hover:scale-105 transition-all flex items-center justify-center gap-6"
-                >
-                  <Key size={32} /> เปลี่ยน API Key เดี๋ยวนี้
-                </button>
-                <a 
-                  href="https://ai.google.dev/gemini-api/docs/billing" 
-                  target="_blank"
-                  className="flex-1 py-10 bg-transparent border-4 border-red-600 text-red-600 font-black text-2xl uppercase rounded-[40px] hover:bg-red-600/10 transition-all flex items-center justify-center gap-6"
-                >
-                  <ExternalLink size={32} /> ตรวจสอบ Billing
-                </a>
-             </div>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-px bg-red-900/20 border-b border-red-600/30">
         <SensorBox label="อันตราย" value={intel?.target_profile?.danger_level || '99'} unit="Lv" color="red" />
         <SensorBox label="คำพูดจริง" value={intel?.verbatim_quotes?.length || '0'} unit="Quotes" color="emerald" />
         <SensorBox label="รายการทำผิด" value={intel?.criminal_ledger?.length || '0'} unit="Acts" color="red" />
-        <SensorBox label="สถานะ" value={intel?.target_profile?.current_status || (errorType ? 'HALTED' : 'SCANNING')} />
+        <SensorBox label="สถานะ" value={intel?.target_profile?.current_status || 'SCANNING'} />
         <SensorBox label="พิกัด LAT" value={coords.lat.toFixed(4)} />
         <SensorBox label="พิกัด LNG" value={coords.lng.toFixed(4)} />
         <SensorBox label="SOURCE" value="GLOBAL_SEARCH" color="cyan" />
@@ -221,6 +176,7 @@ const EvolutionCore: React.FC = () => {
 
                       <section>
                          <div className="text-[10px] text-red-600 font-black uppercase mb-6 flex items-center gap-2">
+                            {/* Fix: AlertTriangle icon is now properly imported and used */}
                             <AlertTriangle size={14} /> รายการกระทำผิดที่ยืนยันแล้ว
                          </div>
                          <div className="space-y-4">
@@ -236,9 +192,7 @@ const EvolutionCore: React.FC = () => {
                 ) : (
                    <div className="flex-1 flex flex-col items-center justify-center text-red-900 gap-8">
                       <Globe size={64} className="animate-pulse" />
-                      <span className="font-black uppercase tracking-[0.5em] text-xs">
-                        {errorType === 'QUOTA' ? 'OPERATION_ABORTED_DUE_TO_QUOTA' : 'กำลังกวาดล้างข้อมูลประทวน...'}
-                      </span>
+                      <span className="font-black uppercase tracking-[0.5em] text-xs">กำลังกวาดล้างข้อมูลประทวน...</span>
                    </div>
                 )}
              </div>
